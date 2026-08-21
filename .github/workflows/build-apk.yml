@@ -41,6 +41,34 @@ jobs:
           key: buildozer-${{ hashFiles('buildozer.spec') }}
           restore-keys: buildozer-
 
+      - name: Patch p4a pip upgrade bug
+        run: |
+          P4A_DIR="$HOME/.buildozer/android/platform/python-for-android"
+          mkdir -p "$HOME/.buildozer/android/platform"
+          if [ ! -d "$P4A_DIR/.git" ]; then
+            echo "Cloning p4a (develop) ..."
+            git clone --depth 1 -b develop https://github.com/kivy/python-for-android.git "$P4A_DIR"
+          else
+            echo "Updating p4a ..."
+            cd "$P4A_DIR" && git fetch --depth 1 origin develop && git checkout -f develop && git reset --hard origin/develop
+          fi
+          echo "Patching pip upgrade to pinned version ..."
+          python3 - <<'EOF'
+from pathlib import Path
+p = Path.home() / '.buildozer/android/platform/python-for-android/pythonforandroid/build.py'
+src = p.read_text(encoding='utf-8')
+old = 'pip install -U pip'
+new = "pip install -U 'pip==23.0.1'"
+if old in src:
+    p.write_text(src.replace(old, new), encoding='utf-8')
+    print('PATCHED: pip upgrade pinned to 23.0.1')
+else:
+    print('NOTE: pattern not found (p4a may already be fixed), checking current line ...')
+    for line in src.splitlines():
+        if 'pip install' in line and 'Upgrade' in line:
+            print('LINE:', line.strip())
+EOF
+
       - name: Build debug APK
         run: |
           rm -rf .buildozer
