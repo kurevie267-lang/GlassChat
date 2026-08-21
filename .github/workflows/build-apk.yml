@@ -38,16 +38,18 @@ jobs:
         with:
           path: |
             ~/.buildozer
-            .buildozer
           key: buildozer-${{ hashFiles('buildozer.spec') }}
           restore-keys: buildozer-
 
       - name: Build debug APK
         run: |
-          buildozer android debug || {
+          rm -rf .buildozer
+          buildozer android debug 2>&1 | tee buildozer-output.log || {
             echo "========== BUILD FAILED =========="
             echo "Showing last 200 lines of .buildozer log:"
-            find .buildozer -name '*.log' -type f -exec tail -200 {} \;
+            find .buildozer -name '*.log' -type f -exec tail -200 {} \; || true
+            echo "========== Full buildozer output (last 300 lines) =========="
+            tail -300 buildozer-output.log || true
             exit 1
           }
 
@@ -66,5 +68,6 @@ jobs:
           name: build-logs
           path: |
             .buildozer/**/*.log
+            buildozer-output.log
             buildozer.spec
           if-no-files-found: ignore
